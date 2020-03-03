@@ -1,5 +1,7 @@
 # webshoptools
 
+[![CircleCI](https://circleci.com/gh/greenpeace-cee/webshoptools.svg?style=svg)](https://circleci.com/gh/greenpeace-cee/webshoptools)
+
 This CiviCRM extension provides some behind-the-scenes tooling for an activity-based webshop process.
 
 The extension is licensed under [AGPL-3.0](LICENSE.txt).
