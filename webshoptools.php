@@ -180,58 +180,84 @@ function webshoptools_civicrm_navigationMenu(&$menu) {
  * @throws \CiviCRM_API3_Exception
  */
 function webshoptools_civicrm_pre($op, $objectName, $id, &$params) {
-  if ($objectName == 'Activity' && ($op == 'create' || $op == 'edit')) {
-    $webshopOrderId = (int) civicrm_api3('OptionValue', 'getvalue', [
-      'sequential' => 1,
-      'return' => 'value',
-      'option_group_id' => 'activity_type',
-      'name' => 'Webshop Order',
+  if (!($objectName == 'Activity' && ($op == 'create' || $op == 'edit'))) {
+    return;
+  }
+
+  if (empty($params['custom'])) {
+    return;
+  }
+
+  $webshopOrderId = (int) civicrm_api3('OptionValue', 'getvalue', [
+    'sequential' => 1,
+    'return' => 'value',
+    'option_group_id' => 'activity_type',
+    'name' => 'Webshop Order',
+  ]);
+
+  if ($op == 'edit') {
+    $currentActivity = civicrm_api3('Activity', 'getsingle', [
+      'id' => $params['id'],
     ]);
 
-    if ($webshopOrderId == $params['activity_type_id']) {
-      $customFields = civicrm_api3('CustomField', 'get', [
-        'sequential' => 1,
-        'custom_group_id' => 'webshop_information',
-        'name' => ['IN' => ['order_type', 'shirt_type', 'shirt_size', 'order_count']],
+    $activityTypeId = $currentActivity['activity_type_id'];
+  } else {
+    $activityTypeId = $params['activity_type_id'];
+  }
+
+  if ($webshopOrderId != $activityTypeId) {
+    return;
+  }
+
+  $customFields = civicrm_api3('CustomField', 'get', [
+    'sequential' => 1,
+    'custom_group_id' => 'webshop_information',
+    'name' => ['IN' => ['order_type', 'shirt_type', 'shirt_size', 'order_count']],
+  ]);
+
+  $webshopInfo = [];
+
+  foreach ($customFields['values'] as $value) {
+    if (array_key_exists($value['id'], $params['custom'])) {
+      $customValue = reset($params['custom'][$value['id']])['value'];
+    }
+    elseif (isset($currentActivity) && array_key_exists('custom_' . $value['id'], $currentActivity)) {
+      $customValue = $currentActivity['custom_' . $value['id']];
+    }
+    else {
+      $customValue = '';
+    }
+
+    if (!empty($value['option_group_id']) && !empty($customValue)) {
+      $webshopInfo[$value['name']] = civicrm_api3('OptionValue', 'getvalue', [
+        'return' => 'label',
+        'option_group_id' => $value['option_group_id'],
+        'value' => $customValue,
       ]);
-
-      $webshopInfo = [];
-
-      foreach ($customFields['values'] as $value) {
-        $customValue = reset($params['custom'][$value['id']])['value'];
-
-        if (!empty($value['option_group_id']) && !empty($customValue)) {
-          $webshopInfo[$value['name']] = civicrm_api3('OptionValue', 'getvalue', [
-            'return' => 'label',
-            'option_group_id' => $value['option_group_id'],
-            'value' => $customValue,
-          ]);
-        } else {
-          $webshopInfo[$value['name']] = $customValue;
-        }
-      }
-
-      $orderType = $shirtType = $shirtSize = $orderCount = '';
-
-      if (!empty($webshopInfo['order_type'])) {
-        $orderType = $webshopInfo['order_type'] . ' ';
-      }
-
-      if (!empty($webshopInfo['shirt_type']) && !empty($webshopInfo['shirt_size'])) {
-        $shirtType = $webshopInfo['shirt_type'] . '/';
-      } elseif (!empty($webshopInfo['shirt_type'])) {
-        $shirtType = $webshopInfo['shirt_type'] . ' ';
-      }
-
-      if (!empty($webshopInfo['shirt_size'])) {
-        $shirtSize = $webshopInfo['shirt_size'] . ' ';
-      }
-
-      if (!empty($webshopInfo['order_count'])) {
-        $orderCount = $webshopInfo['order_count'] . 'x';
-      }
-
-      $params['subject'] = trim($orderType . $shirtType . $shirtSize . $orderCount);
+    } else {
+      $webshopInfo[$value['name']] = $customValue;
     }
   }
+
+  $orderType = $shirtType = $shirtSize = $orderCount = '';
+
+  if (!empty($webshopInfo['order_type'])) {
+    $orderType = $webshopInfo['order_type'] . ' ';
+  }
+
+  if (!empty($webshopInfo['shirt_type']) && !empty($webshopInfo['shirt_size'])) {
+    $shirtType = $webshopInfo['shirt_type'] . '/';
+  } elseif (!empty($webshopInfo['shirt_type'])) {
+    $shirtType = $webshopInfo['shirt_type'] . ' ';
+  }
+
+  if (!empty($webshopInfo['shirt_size'])) {
+    $shirtSize = $webshopInfo['shirt_size'] . ' ';
+  }
+
+  if (!empty($webshopInfo['order_count'])) {
+    $orderCount = $webshopInfo['order_count'] . 'x';
+  }
+
+  $params['subject'] = trim($orderType . $shirtType . $shirtSize . $orderCount);
 }
