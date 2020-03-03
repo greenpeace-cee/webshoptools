@@ -35,8 +35,5 @@ cv en webshoptools
 
 ## Usage
 
-(* FIXME: Where would a new user navigate to get started? What changes would they see? *)
-
-## Known Issues
-
-(* FIXME *)
+* Subject of "Webshop Order" activities is automatically generated based on the
+  template `{order_type}[ {shirt_type}/{shirt_size}] {number_of_items}x`
