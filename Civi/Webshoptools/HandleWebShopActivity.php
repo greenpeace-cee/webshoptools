@@ -26,8 +26,11 @@ class HandleWebShopActivity {
     $customFieldsData = self::getWebShopCustomFieldsData($params, $currentActivity);
     $params['subject'] = self::generateSubject($customFieldsData);
 
-    if (self::isNewActivityStatusCompleted($currentActivity, $params, $operation)) {
+    if (self::isNeedToUpdateOrderExportedField($currentActivity, $params, $operation)) {
       self::setCustomValue('order_exported', '1', $customFieldsData, $params);
+    }
+
+    if (self::isNeedToUpdateOrderExportedDateField($currentActivity, $params, $operation, $customFieldsData)) {
       self::setCustomValue('order_exported_date', \CRM_Utils_Date::currentDBDate(), $customFieldsData, $params);
     }
   }
@@ -132,16 +135,51 @@ class HandleWebShopActivity {
    * @param $operation
    * @return bool
    */
-  private static function isNewActivityStatusCompleted($currentActivity, $params, $operation) {
-    if ($operation != 'edit') {
+  private static function isNeedToUpdateOrderExportedField($currentActivity, $params, $operation) {
+    if (!in_array($operation, ['edit', 'create'])) {
       return false;
     }
 
-    $currentStatusId = $currentActivity['status_id'];
-    $newStatusId = $params['status_id'];
     $completedStatusId = \CRM_Core_PseudoConstant::getKey('CRM_Activity_BAO_Activity', 'activity_status_id', 'Completed');
 
-    return $currentStatusId != $newStatusId && $newStatusId == $completedStatusId;
+    if ($operation == 'create') {
+      // while creating activity CiviCRM sets 'Completed' status as default if status is empty
+      if (empty($params['status_id'])) {
+        return true;
+      }
+
+      if ($params['status_id'] == $completedStatusId) {
+        return true;
+      }
+    }
+
+    if ($operation == 'edit') {
+      $currentStatusId = $currentActivity['status_id'];
+      $newStatusId = $params['status_id'];
+
+      return $currentStatusId != $newStatusId && $newStatusId == $completedStatusId;
+    }
+
+    return false;
+  }
+
+  /**
+   * @param $currentActivity
+   * @param $params
+   * @param $operation
+   * @param $customFieldsData
+   * @return bool
+   */
+  private static function isNeedToUpdateOrderExportedDateField($currentActivity, $params, $operation, $customFieldsData) {
+    if (!self::isNeedToUpdateOrderExportedField($currentActivity, $params, $operation)) {
+      return false;
+    }
+
+    if (empty($customFieldsData['order_exported_date']['old_value']) && empty($customFieldsData['order_exported_date']['new_value'])) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
