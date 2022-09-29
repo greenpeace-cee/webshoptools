@@ -68,6 +68,8 @@ class HandleWebShopActivity {
       $data['custom_field_id'] = $customField['id'];
       $data['entity_field_name'] = 'custom_' . $customField['id'];
       $data['old_value'] = empty($currentActivity[$data['entity_field_name']]) ? '' : $currentActivity[$data['entity_field_name']];
+      $data['old_value_label'] = self::getValueLabel($customField['option_group_id'], $data['old_value']);
+      $data['is_isset_new_value'] = false;
 
       if (empty($params['custom'][$customField['id']])) {
         $data['new_value'] = '';
@@ -77,17 +79,9 @@ class HandleWebShopActivity {
           if (!empty($field['id'])) {
             $fieldRowId = $field['id'];
           }
+          $data['is_isset_new_value'] = true;
           $data['new_value'] = $field['value'];
-
-          if (!empty($customField['option_group_id']) && !empty($data['new_value'])) {
-            $data['new_value_label'] = civicrm_api3('OptionValue', 'getvalue', [
-              'return' => 'label',
-              'option_group_id' => $customField['option_group_id'],
-              'value' => $data['new_value'],
-            ]);
-          } else {
-            $data['new_value_label'] = $field['value'];
-          }
+          $data['new_value_label'] = self::getValueLabel($customField['option_group_id'], $data['new_value']);
         }
       }
 
@@ -103,30 +97,66 @@ class HandleWebShopActivity {
   }
 
   /**
+   * Gets label of 'optionValue' entity by 'value' field
+   *
+   * @param $optionGroupId
+   * @param $value
+   * @return string
+   */
+  public static function getValueLabel($optionGroupId, $value) {
+    if (empty($optionGroupId) || empty($value)) {
+      return $value;
+    }
+
+    try {
+      $label = civicrm_api3('OptionValue', 'getvalue', [
+        'return' => 'label',
+        'option_group_id' => $optionGroupId,
+        'value' => $value,
+      ]);
+    } catch (CiviCRM_API3_Exception $e) {
+      return $value;
+    }
+
+    return $label;
+  }
+
+  /**
    * @return string
    */
   private static function generateSubject($customFieldsData) {
-    $orderType = $shirtType = $shirtSize = $orderCount = '';
-
-    if (!empty($customFieldsData['order_type']['new_value_label'])) {
-      $orderType = $customFieldsData['order_type']['new_value_label'] . ' ';
+    $shirtTypeSeparator = ' ';
+    if (!empty($customFieldsData['shirt_size']['new_value_label']) || !empty($customFieldsData['shirt_size']['old_value_label']))  {
+      $shirtTypeSeparator = '/';
     }
 
-    if (!empty($customFieldsData['shirt_type']['new_value_label']) && !empty($customFieldsData['shirt_size']['new_value_label'])) {
-      $shirtType = $customFieldsData['shirt_type']['new_value_label'] . '/';
-    } elseif (!empty($customFieldsData['shirt_type']['new_value_label'])) {
-      $shirtType = $customFieldsData['shirt_type']['new_value_label'] . ' ';
-    }
-
-    if (!empty($customFieldsData['shirt_size']['new_value_label'])) {
-      $shirtSize = $customFieldsData['shirt_size']['new_value_label'] . ' ';
-    }
-
-    if (!empty($customFieldsData['order_count']['new_value_label'])) {
-      $orderCount = $customFieldsData['order_count']['new_value_label'] . 'x';
-    }
+    $shirtSize = self::findCustomFiledValue($customFieldsData, 'shirt_size') . ' ';
+    $orderType = self::findCustomFiledValue($customFieldsData, 'order_type') . ' ';
+    $shirtType = self::findCustomFiledValue($customFieldsData, 'shirt_type') . $shirtTypeSeparator;
+    $orderCount = self::findCustomFiledValue($customFieldsData, 'order_count') . 'x';
 
     return trim($orderType . $shirtType . $shirtSize . $orderCount);
+  }
+
+  /**
+   * Finds actual value in custom fields data
+   *
+   * @param $customFieldsData
+   * @param $fieldName
+   * @return string
+   */
+  public static function findCustomFiledValue($customFieldsData, $fieldName) {
+    $value = '';
+
+    if (!empty($customFieldsData[$fieldName])) {
+      if ($customFieldsData[$fieldName]['is_isset_new_value']) {
+        $value = $customFieldsData[$fieldName]['new_value_label'];
+      } else {
+        $value = $customFieldsData[$fieldName]['old_value_label'];
+      }
+    }
+
+    return $value;
   }
 
   /**
