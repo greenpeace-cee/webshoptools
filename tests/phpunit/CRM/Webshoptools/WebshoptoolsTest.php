@@ -67,6 +67,20 @@ class CRM_Webshoptools_WebshoptoolsTest extends \PHPUnit\Framework\TestCase impl
         $apiParams['option_status'] = [1];
       }
 
+      if ($key == 'shirt_type') {
+        $apiParams['option_label'] = ['Herren'];
+        $apiParams['option_value'] = ['1'];
+        $apiParams['option_weight'] = [1];
+        $apiParams['option_status'] = [1];
+      }
+
+      if ($key == 'shirt_size') {
+        $apiParams['option_label'] = ['S'];
+        $apiParams['option_value'] = ['1'];
+        $apiParams['option_weight'] = [1];
+        $apiParams['option_status'] = [1];
+      }
+
       $result = $this->callAPISuccess('CustomField', 'create', $apiParams);
 
       $customFields[$key] = $result['id'];
@@ -86,16 +100,18 @@ class CRM_Webshoptools_WebshoptoolsTest extends \PHPUnit\Framework\TestCase impl
       'activity_type_id' => $webshopOrder['values'][$webshopOrder['id']]['value'],
       'custom_' . $customFields['order_type'] => 1,
       'custom_' . $customFields['order_count'] => 1,
+      'custom_' . $customFields['shirt_type'] => 1,
+      'custom_' . $customFields['shirt_size'] => 1,
     ]);
 
-    $this->assertEquals('Banner Bag - Urban Activist 1x', $activity['values'][$activity['id']]['subject']);
+    $this->assertEquals('Banner Bag - Urban Activist Herren/S 1x', $activity['values'][$activity['id']]['subject']);
 
     $activity = $this->callAPISuccess('Activity', 'create', [
       'id' => $activity['id'],
       'custom_' . $customFields['order_count'] => 2,
     ]);
 
-    $this->assertEquals('Banner Bag - Urban Activist 2x', $activity['values'][$activity['id']]['subject']);
+    $this->assertEquals('Banner Bag - Urban Activist Herren/S 2x', $activity['values'][$activity['id']]['subject']);
   }
 
 }
