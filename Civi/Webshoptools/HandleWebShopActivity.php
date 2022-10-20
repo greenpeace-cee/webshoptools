@@ -2,6 +2,8 @@
 
 namespace Civi\Webshoptools;
 
+use CRM_Core_BAO_CustomField;
+
 class HandleWebShopActivity {
 
   /**
@@ -12,26 +14,30 @@ class HandleWebShopActivity {
    * @return void
    */
   public static function run($operation, $objectName, $id, &$params) {
-    if (empty($params['custom']) || !($objectName == 'Activity' && ($operation == 'create' || $operation == 'edit'))) {
+    if (!($objectName == 'Activity' && ($operation == 'create' || $operation == 'edit'))) {
       return;
     }
 
-    $currentActivity = $operation == 'edit' ? civicrm_api3('Activity', 'getsingle', ['id' => $params['id']]) : null;
-    $activityTypeId = $operation == 'edit' ? $currentActivity['activity_type_id'] : $params['activity_type_id'];
+    if (empty($params['custom'])) {
+      $params['custom'] = [];
+    }
 
-    if (self::getWebShopActivityTypeId() != $activityTypeId) {
+    $currentActivity = $operation == 'edit' ? civicrm_api3('Activity', 'getsingle', ['id' => $params['id']]) : null;
+    $activityTypeId = (int) ($operation == 'edit' ? $currentActivity['activity_type_id'] : $params['activity_type_id']);
+
+    if (self::getWebShopActivityTypeId() !== $activityTypeId) {
       return;
     }
 
     $customFieldsData = self::getWebShopCustomFieldsData($params, $currentActivity);
     $params['subject'] = self::generateSubject($customFieldsData);
 
-    if (self::isNeedToUpdateOrderExportedField($currentActivity, $params, $operation)) {
-      self::setCustomValue('order_exported', '1', $customFieldsData, $params);
-    }
-
     if (self::isNeedToUpdateOrderExportedDateField($currentActivity, $params, $operation, $customFieldsData)) {
       self::setCustomValue('order_exported_date', \CRM_Utils_Date::currentDBDate(), $customFieldsData, $params);
+    }
+
+    if (self::isNeedToUpdateOrderExportedField($currentActivity, $params, $operation, $customFieldsData)) {
+      self::setCustomValue('order_exported', '1', $customFieldsData, $params);
     }
   }
 
@@ -68,7 +74,7 @@ class HandleWebShopActivity {
       $data['custom_field_id'] = $customField['id'];
       $data['entity_field_name'] = 'custom_' . $customField['id'];
       $data['old_value'] = empty($currentActivity[$data['entity_field_name']]) ? '' : $currentActivity[$data['entity_field_name']];
-      $data['old_value_label'] = self::getValueLabel($customField['option_group_id'], $data['old_value']);
+      $data['old_value_label'] = self::getValueLabel($customField, $data['old_value']);
       $data['is_isset_new_value'] = false;
 
       if (empty($params['custom'][$customField['id']])) {
@@ -81,7 +87,7 @@ class HandleWebShopActivity {
           }
           $data['is_isset_new_value'] = true;
           $data['new_value'] = $field['value'];
-          $data['new_value_label'] = self::getValueLabel($customField['option_group_id'], $data['new_value']);
+          $data['new_value_label'] = self::getValueLabel($customField, $data['new_value']);
         }
       }
 
@@ -103,15 +109,15 @@ class HandleWebShopActivity {
    * @param $value
    * @return string
    */
-  public static function getValueLabel($optionGroupId, $value) {
-    if (empty($optionGroupId) || empty($value)) {
+  public static function getValueLabel($customFiled, $value) {
+    if (empty($customFiled['option_group_id']) || empty($value)) {
       return $value;
     }
 
     try {
       $label = civicrm_api3('OptionValue', 'getvalue', [
         'return' => 'label',
-        'option_group_id' => $optionGroupId,
+        'option_group_id' => $customFiled['option_group_id'],
         'value' => $value,
       ]);
     } catch (CiviCRM_API3_Exception $e) {
@@ -165,12 +171,12 @@ class HandleWebShopActivity {
    * @param $operation
    * @return bool
    */
-  private static function isNeedToUpdateOrderExportedField($currentActivity, $params, $operation) {
+  private static function isNeedToUpdateOrderExportedField($currentActivity, $params, $operation, $customFieldsData) {
     if (!in_array($operation, ['edit', 'create'])) {
       return false;
     }
 
-    $completedStatusId = \CRM_Core_PseudoConstant::getKey('CRM_Activity_BAO_Activity', 'activity_status_id', 'Completed');
+    $completedStatusId = (int) \CRM_Core_PseudoConstant::getKey('CRM_Activity_BAO_Activity', 'activity_status_id', 'Completed');
 
     if ($operation == 'create') {
       // while creating activity CiviCRM sets 'Completed' status as default if status is empty
@@ -184,9 +190,8 @@ class HandleWebShopActivity {
     }
 
     if ($operation == 'edit') {
-      $currentStatusId = $currentActivity['status_id'];
-      $newStatusId = $params['status_id'];
-
+      $currentStatusId = (int) $currentActivity['status_id'];
+      $newStatusId = (int) $params['status_id'];
       return $currentStatusId != $newStatusId && $newStatusId == $completedStatusId;
     }
 
@@ -201,7 +206,19 @@ class HandleWebShopActivity {
    * @return bool
    */
   private static function isNeedToUpdateOrderExportedDateField($currentActivity, $params, $operation, $customFieldsData) {
-    if (!self::isNeedToUpdateOrderExportedField($currentActivity, $params, $operation)) {
+    if (!self::isNeedToUpdateOrderExportedField($currentActivity, $params, $operation, $customFieldsData)) {
+      return false;
+    }
+
+    $isSetNewValueOrderExportedDate = $customFieldsData['order_exported_date']['is_isset_new_value'];
+    $isSetNewValueOrderExported = $customFieldsData['order_exported']['is_isset_new_value'];
+    $newValueOrderExported = $customFieldsData['order_exported']['new_value'];
+
+    if ($isSetNewValueOrderExported && $newValueOrderExported == '0' && $isSetNewValueOrderExportedDate) {
+      return true;
+    }
+
+    if ($isSetNewValueOrderExported && $newValueOrderExported == '1' && $isSetNewValueOrderExportedDate) {
       return false;
     }
 
@@ -222,12 +239,19 @@ class HandleWebShopActivity {
    * @return void
    */
   private static function setCustomValue($name, $value, $customFieldsData, &$params) {
-    if (empty($params['custom'][$customFieldsData[$name]['custom_field_id']])) {
-      return;
-    }
+    $activityId = empty($params['id']) ? -1 : $params['id'];
+    $customFieldId = $customFieldsData[$name]['custom_field_id'];
 
-    $params[$customFieldsData[$name]['params_key']] = $value;
-    $params['custom'][$customFieldsData[$name]['custom_field_id']][$customFieldsData[$name]['field_row_id']]['value'] = $value;
+    CRM_Core_BAO_CustomField::formatCustomField(
+      $customFieldId,
+      $params['custom'],
+      $value,
+      'Activity',
+      null,
+      $activityId,
+      FALSE,
+      FALSE
+    );
   }
 
 }
