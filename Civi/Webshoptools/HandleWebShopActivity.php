@@ -218,6 +218,11 @@ class HandleWebShopActivity {
       return true;
     }
 
+    // TODO: Test all cases
+    if ($isSetNewValueOrderExported && $newValueOrderExported == '1' && (!$isSetNewValueOrderExportedDate || empty($customFieldsData['order_exported_date']['new_value']))) {
+      return true;
+    }
+
     if ($isSetNewValueOrderExported && $newValueOrderExported == '1' && $isSetNewValueOrderExportedDate) {
       return false;
     }
