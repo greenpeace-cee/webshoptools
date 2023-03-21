@@ -191,7 +191,7 @@ class HandleWebShopActivity {
 
     if ($operation == 'edit') {
       $currentStatusId = (int) $currentActivity['status_id'];
-      $newStatusId = (int) $params['status_id'];
+      $newStatusId = (int) ($params['status_id'] ?? NULL);
       return $currentStatusId != $newStatusId && $newStatusId == $completedStatusId;
     }
 
