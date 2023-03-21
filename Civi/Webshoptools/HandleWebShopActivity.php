@@ -191,7 +191,7 @@ class HandleWebShopActivity {
 
     if ($operation == 'edit') {
       $currentStatusId = (int) $currentActivity['status_id'];
-      $newStatusId = (int) $params['status_id'];
+      $newStatusId = (int) ($params['status_id'] ?? NULL);
       return $currentStatusId != $newStatusId && $newStatusId == $completedStatusId;
     }
 
@@ -215,6 +215,11 @@ class HandleWebShopActivity {
     $newValueOrderExported = $customFieldsData['order_exported']['new_value'];
 
     if ($isSetNewValueOrderExported && $newValueOrderExported == '0' && $isSetNewValueOrderExportedDate) {
+      return true;
+    }
+
+    // TODO: Test all cases
+    if ($isSetNewValueOrderExported && $newValueOrderExported == '1' && (!$isSetNewValueOrderExportedDate || empty($customFieldsData['order_exported_date']['new_value']))) {
       return true;
     }
 

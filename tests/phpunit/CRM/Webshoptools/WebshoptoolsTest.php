@@ -16,7 +16,7 @@ class CRM_Webshoptools_WebshoptoolsTest extends \PHPUnit\Framework\TestCase impl
   public function setUpHeadless() {
     return \Civi\Test::headless()
       ->installMe(__DIR__)
-      ->apply();
+      ->apply(TRUE);
   }
 
   /**
@@ -45,6 +45,8 @@ class CRM_Webshoptools_WebshoptoolsTest extends \PHPUnit\Framework\TestCase impl
       'shirt_type' => ['data_type' => 'String', 'html_type' => 'Select', 'label' => 'T-Shirt-Type'],
       'shirt_size' => ['data_type' => 'String', 'html_type' => 'Select', 'label' => 'T-Shirt-Size'],
       'order_count' => ['data_type' => 'Int', 'html_type' => 'Text', 'label' => 'Number of Items'],
+      'order_exported' => ['data_type' => 'Boolean', 'html_type' => 'Radio', 'label' => 'Order exported?'],
+      'order_exported_date' => ['data_type' => 'Date', 'html_type' => 'Select Date', 'label' => 'Order Exported Date'],
     ];
     $customFields = [];
 
