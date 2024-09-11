@@ -18,7 +18,7 @@
   <version>1.1-beta.2</version>
   <develStage>beta</develStage>
   <compatibility>
-    <ver>5.39</ver>
+    <ver>5.69</ver>
   </compatibility>
   <comments/>
   <classloader>
@@ -26,5 +26,6 @@
   </classloader>
   <civix>
     <namespace>CRM/Webshoptools</namespace>
+    <format>23.02.1</format>
   </civix>
 </extension>
