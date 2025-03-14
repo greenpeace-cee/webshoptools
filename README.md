@@ -1,6 +1,6 @@
 # webshoptools
 
-[![CircleCI](https://circleci.com/gh/greenpeace-cee/webshoptools.svg?style=svg)](https://circleci.com/gh/greenpeace-cee/webshoptools)
+[![Run unit tests](https://github.com/greenpeace-cee/webshoptools/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/greenpeace-cee/webshoptools/actions/workflows/unit-tests.yml)
 
 This CiviCRM extension provides some behind-the-scenes tooling for an activity-based webshop process.
 

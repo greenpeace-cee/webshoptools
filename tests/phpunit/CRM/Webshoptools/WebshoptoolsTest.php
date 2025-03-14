@@ -1,5 +1,7 @@
 <?php
 
+use Civi\Api4\CustomField;
+use Civi\Api4\OptionValue;
 use Civi\Test\HeadlessInterface;
 use Civi\Test\HookInterface;
 use Civi\Test\TransactionalInterface;
@@ -16,80 +18,35 @@ class CRM_Webshoptools_WebshoptoolsTest extends \PHPUnit\Framework\TestCase impl
   public function setUpHeadless() {
     return \Civi\Test::headless()
       ->installMe(__DIR__)
-      ->apply(TRUE);
+      ->apply();
   }
 
   /**
    * Test that activity subject is correct
    */
   public function testActivitySubjectIsCorrect() {
-    $webshopOrder = $this->callAPISuccess('OptionValue', 'create', [
-      'option_group_id' => 'activity_type',
-      'name' => 'Webshop Order',
-      'is_active' => 1,
-    ]);
-
-    $customGroup = $this->callAPISuccess('CustomGroup', 'create', [
-      'title' => 'Webshop Information',
-      'extends' => 'Activity',
-      'extends_entity_column_value' => 'Webshop Order',
-      'table_name' => 'civicrm_value_webshop_information',
-      'is_active' => 1,
-      'style' => 'Inline',
-      'collapse_display' => 0,
-      'collapse_adv_display' => 1,
-    ]);
-
-    $customParams = [
-      'order_type' => ['data_type' => 'String', 'html_type' => 'Select', 'label' => 'Order Type'],
-      'shirt_type' => ['data_type' => 'String', 'html_type' => 'Select', 'label' => 'T-Shirt-Type'],
-      'shirt_size' => ['data_type' => 'String', 'html_type' => 'Select', 'label' => 'T-Shirt-Size'],
-      'order_count' => ['data_type' => 'Int', 'html_type' => 'Text', 'label' => 'Number of Items'],
-      'order_exported' => ['data_type' => 'Boolean', 'html_type' => 'Radio', 'label' => 'Order exported?'],
-      'order_exported_date' => ['data_type' => 'Date', 'html_type' => 'Select Date', 'label' => 'Order Exported Date'],
+    OptionValue::create(FALSE)
+      ->addValue('option_group_id:name', 'order_type')
+      ->addValue('label', 'Banner Bag - Urban Activist')
+      ->addValue('value', '1')
+      ->execute();
+    $customFieldNames = [
+      'order_type',
+      'shirt_type',
+      'shirt_size',
+      'order_count',
+      'order_exported',
+      'order_exported_date',
     ];
     $customFields = [];
-
-    foreach ($customParams as $key => $param) {
-      $apiParams = [
-        'custom_group_id' => $customGroup['id'],
-        'label' => $param['label'],
-        'name' => $key,
-        'column_name' => $key,
-        'data_type' => $param['data_type'],
-        'html_type' => $param['html_type'],
-        'is_active' => 1,
-        'is_searchable' => 1,
-      ];
-
-      if ($key == 'order_type') {
-        $apiParams['option_label'] = ['Banner Bag - Urban Activist'];
-        $apiParams['option_value'] = ['1'];
-        $apiParams['option_weight'] = [1];
-        $apiParams['option_status'] = [1];
-      }
-
-      if ($key == 'shirt_type') {
-        $apiParams['option_label'] = ['Herren'];
-        $apiParams['option_value'] = ['1'];
-        $apiParams['option_weight'] = [1];
-        $apiParams['option_status'] = [1];
-      }
-
-      if ($key == 'shirt_size') {
-        $apiParams['option_label'] = ['S'];
-        $apiParams['option_value'] = ['1'];
-        $apiParams['option_weight'] = [1];
-        $apiParams['option_status'] = [1];
-      }
-
-      $result = $this->callAPISuccess('CustomField', 'create', $apiParams);
-
-      $customFields[$key] = $result['id'];
-
-      if (isset(\Civi::$statics['CRM_Core_BAO_OptionGroup'])) {
-        unset(\Civi::$statics['CRM_Core_BAO_OptionGroup']);
-      }
+    foreach ($customFieldNames as $field) {
+      $result = CustomField::get(FALSE)
+        ->addSelect('id')
+        ->addWhere('name', '=', $field)
+        ->addWhere('custom_group_id:name', '=', 'webshop_information')
+        ->execute()
+        ->first();
+      $customFields[$field] = $result['id'];
     }
 
     $contact = $this->callAPISuccess('Contact', 'create', [
@@ -99,11 +56,11 @@ class CRM_Webshoptools_WebshoptoolsTest extends \PHPUnit\Framework\TestCase impl
 
     $activity = $this->callAPISuccess('Activity', 'create', [
       'source_contact_id' => $contact['id'],
-      'activity_type_id' => $webshopOrder['values'][$webshopOrder['id']]['value'],
+      'activity_type_id' => 'Webshop Order',
       'custom_' . $customFields['order_type'] => 1,
       'custom_' . $customFields['order_count'] => 1,
-      'custom_' . $customFields['shirt_type'] => 1,
-      'custom_' . $customFields['shirt_size'] => 1,
+      'custom_' . $customFields['shirt_type'] => 'M',
+      'custom_' . $customFields['shirt_size'] => 'S',
     ]);
 
     $this->assertEquals('Banner Bag - Urban Activist Herren/S 1x', $activity['values'][$activity['id']]['subject']);
